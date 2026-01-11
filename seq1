@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام جدولة المناوبات والإبحار</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const PlusIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+        );
+
+        const XIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        );
+
+        const DownloadIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+        );
+
+        function ShiftScheduler() {
+            const [staff, setStaff] = useState([]);
+            const [newStaffName, setNewStaffName] = useState('');
+            const [sailingDates, setSailingDates] = useState([]);
+            const [newSailingDate, setNewSailingDate] = useState('');
+            const [excludedStaff, setExcludedStaff] = useState([]);
+            const [temporaryExclusions, setTemporaryExclusions] = useState([]);
+            const [tempExcludeName, setTempExcludeName] = useState('');
+            const [tempExcludeDate, setTempExcludeDate] = useState('');
+            const [startDate, setStartDate] = useState('');
+            const [endDate, setEndDate] = useState('');
+            const [schedule, setSchedule] = useState([]);
+            const [lastSaved, setLastSaved] = useState('');
+
+            useEffect(() => {
+                loadData();
+            }, []);
+
+            const loadData = () => {
+                try {
+                    const savedStaff = localStorage.getItem('shift_staff');
+                    const savedSailing = localStorage.getItem('shift_sailing');
+                    const savedExcluded = localStorage.getItem('shift_excluded');
+                    const savedTempExcluded = localStorage.getItem('shift_temp_excluded');
+                    const savedDates = localStorage.getItem('shift_dates');
+                    const savedSchedule = localStorage.getItem('shift_schedule');
+                    
+                    if (savedStaff) setStaff(JSON.parse(savedStaff));
+                    if (savedSailing) setSailingDates(JSON.parse(savedSailing));
+                    if (savedExcluded) setExcludedStaff(JSON.parse(savedExcluded));
+                    if (savedTempExcluded) setTemporaryExclusions(JSON.parse(savedTempExcluded));
+                    if (savedDates) {
+                        const dates = JSON.parse(savedDates);
+                        setStartDate(dates.start || '');
+                        setEndDate(dates.end || '');
+                    }
+                    if (savedSchedule) setSchedule(JSON.parse(savedSchedule));
+                    
+                    setLastSaved('تم التحميل');
+                } catch (error) {
+                    console.log('بدء جديد');
+                }
+            };
+
+            const saveData = () => {
+                try {
+                    localStorage.setItem('shift_staff', JSON.stringify(staff));
+                    localStorage.setItem('shift_sailing', JSON.stringify(sailingDates));
+                    localStorage.setItem('shift_excluded', JSON.stringify(excludedStaff));
+                    localStorage.setItem('shift_temp_excluded', JSON.stringify(temporaryExclusions));
+                    localStorage.setItem('shift_dates', JSON.stringify({ start: startDate, end: endDate }));
+                    localStorage.setItem('shift_schedule', JSON.stringify(schedule));
+                    
+                    const now = new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+                    setLastSaved(`حُفظ: ${now}`);
+                } catch (error) {
+                    setLastSaved('خطأ');
+                }
+            };
+
+            useEffect(() => {
+                saveData();
+            }, [staff, sailingDates, excludedStaff, temporaryExclusions, startDate, endDate, schedule]);
+
+            const addStaff = () => {
+                if (newStaffName.trim() && !staff.includes(newStaffName.trim())) {
+                    setStaff([...staff, newStaffName.trim()]);
+                    setNewStaffName('');
+                }
+            };
+
+            const removeStaff = (name) => {
+                setStaff(staff.filter(s => s !== name));
+                setExcludedStaff(excludedStaff.filter(s => s !== name));
+            };
+
+            const addSailingDate = () => {
+                if (newSailingDate && !sailingDates.includes(newSailingDate)) {
+                    setSailingDates([...sailingDates, newSailingDate].sort());
+                    setNewSailingDate('');
+                }
+            };
+
+            const removeSailingDate = (date) => {
+                setSailingDates(sailingDates.filter(d => d !== date));
+            };
+
+            const toggleExcluded = (name) => {
+                if (excludedStaff.includes(name)) {
+                    setExcludedStaff(excludedStaff.filter(s => s !== name));
+                } else {
+                    setExcludedStaff([...excludedStaff, name]);
+                }
+            };
+
+            const addTemporaryExclusion = () => {
+                if (tempExcludeName && tempExcludeDate) {
+                    const exists = temporaryExclusions.some(
+                        e => e.name === tempExcludeName && e.date === tempExcludeDate
+                    );
+                    if (!exists) {
+                        setTemporaryExclusions([...temporaryExclusions, { name: tempExcludeName, date: tempExcludeDate }]);
+                        setTempExcludeName('');
+                        setTempExcludeDate('');
+                    }
+                }
+            };
+
+            const removeTemporaryExclusion = (name, date) => {
+                setTemporaryExclusions(temporaryExclusions.filter(e => !(e.name === name && e.date === date)));
+            };
+
+            const generateSchedule = () => {
+                if (!startDate || !endDate) {
+                    alert('الرجاء إدخال تاريخ البداية والنهاية');
+                    return;
+                }
+
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const days = [];
+                const availableStaff = staff.filter(s => !excludedStaff.includes(s));
+                
+                if (availableStaff.length === 0) {
+                    alert('لا يوجد موظفين متاحين');
+                    return;
+                }
+
+                let staffIndex = 0;
+
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    const dateStr = d.toISOString().split('T')[0];
+                    const dayName = d.toLocaleDateString('ar-SA', { weekday: 'long' });
+                    const isSailing = sailingDates.includes(dateStr);
+
+                    if (!isSailing) {
+                        let assignedStaff = null;
+                        let attempts = 0;
+                        
+                        while (attempts < availableStaff.length) {
+                            const candidate = availableStaff[staffIndex % availableStaff.length];
+                            const hasTempExclusion = temporaryExclusions.some(
+                                e => e.name === candidate && e.date === dateStr
+                            );
+                            
+                            if (!hasTempExclusion) {
+                                assignedStaff = candidate;
+                                staffIndex++;
+                                break;
+                            }
+                            staffIndex++;
+                            attempts++;
+                        }
+                        
+                        if (!assignedStaff) assignedStaff = availableStaff[0];
+                        
+                        days.push({
+                            date: dateStr,
+                            dayName: dayName,
+                            displayDate: d.toLocaleDateString('ar-SA'),
+                            assignee: assignedStaff
+                        });
+                    } else {
+                        days.push({
+                            date: dateStr,
+                            dayName: dayName,
+                            displayDate: d.toLocaleDateString('ar-SA'),
+                            assignee: 'بحر'
+                        });
+                    }
+                }
+
+                setSchedule(days);
+            };
+
+            const downloadHTML = () => {
+                const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"><title>جدول المناوبات</title>
+<style>
+body{font-family:Arial;padding:20px;direction:rtl}
+h1{text-align:center;color:#1e40af;margin-bottom:20px}
+table{width:100%;border-collapse:collapse;margin:20px auto}
+th{background:#2563eb;color:white;padding:12px;border:2px solid #94a3b8}
+td{padding:10px;text-align:center;border:2px solid #cbd5e1}
+tr:nth-child(even){background-color:#f8fafc}
+.sailing{background-color:#cffafe!important;font-weight:bold;color:#0e7490;font-size:18px}
+@media print{body{padding:10px}@page{margin:1cm}}
+</style></head>
+<body>
+<h1>جدول المناوبات والإبحار</h1>
+<table><thead><tr><th>المناوب</th><th>التاريخ</th><th>اليوم</th></tr></thead>
+<tbody>${schedule.map(d => 
+`<tr${d.assignee === 'بحر' ? ' class="sailing"' : ''}>
+<td${d.assignee === 'بحر' ? ' class="sailing"' : ''}>${d.assignee}</td>
+<td>${d.displayDate}</td><td>${d.dayName}</td></tr>`
+).join('')}</tbody></table>
+<script>window.onload=()=>setTimeout(()=>window.print(),500)</script>
+</body></html>`;
+
+                const blob = new Blob([html], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'جدول_المناوبات.html';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                const w = window.open('', '_blank');
+                if (w) { w.document.write(html); w.document.close(); }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 p-4">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+                                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">نظام جدولة المناوبات</h1>
+                                <span className="text-sm text-green-600">{lastSaved}</span>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-6">
+                                {/* الموظفين */}
+                                <div className="bg-blue-50 rounded-xl p-4">
+                                    <h2 className="text-lg font-bold text-gray-800 mb-3">الموظفين</h2>
+                                    <div className="flex gap-2 mb-3">
+                                        <input
+                                            type="text"
+                                            value={newStaffName}
+                                            onChange={(e) => setNewStaffName(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && addStaff()}
+                                            placeholder="اسم الموظف"
+                                            className="flex-1 px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500"
+                                        />
+                                        <button onClick={addStaff} className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700">
+                                            <PlusIcon />
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                                        {staff.length === 0 ? (
+                                            <p className="text-gray-500 text-center py-3">لا يوجد موظفين</p>
+                                        ) : (
+                                            staff.map(name => (
+                                                <div key={name} className="flex items-center justify-between bg-white p-2 rounded-lg">
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={excludedStaff.includes(name)}
+                                                            onChange={() => toggleExcluded(name)}
+                                                            className="w-4 h-4"
+                                                        />
+                                                        <span className={excludedStaff.includes(name) ? 'line-through text-gray-400' : 'text-gray-800'}>
+                                                            {name}
+                                                        </span>
+                                                        {excludedStaff.includes(name) && (
+                                                            <span className="text-xs text-red-600 bg-red-100 px-2 py-0.5 rounded">إجازة</span>
+                                                        )}
+                                                    </div>
+                                                    <button onClick={() => removeStaff(name)} className="text-red-500 hover:text-red-700">
+                                                        <XIcon />
+                                                    </button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* أيام الإبحار */}
+                                <div className="bg-cyan-50 rounded-xl p-4">
+                                    <h2 className="text-lg font-bold text-gray-800 mb-3">أيام الإبحار</h2>
+                                    <div className="flex gap-2 mb-3">
+                                        <input
+                                            type="date"
+                                            value={newSailingDate}
+                                            onChange={(e) => setNewSailingDate(e.target.value)}
+                                            className="flex-1 px-3 py-2 border-2 border-cyan-200 rounded-lg focus:outline-none focus:border-cyan-500"
+                                        />
+                                        <button onClick={addSailingDate} className="bg-cyan-600 text-white px-3 py-2 rounded-lg hover:bg-cyan-700">
+                                            <PlusIcon />
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                                        {sailingDates.length === 0 ? (
+                                            <p className="text-gray-500 text-center py-3">لا توجد أيام إبحار</p>
+                                        ) : (
+                                            sailingDates.map(date => (
+                                                <div key={date} className="flex items-center justify-between bg-white p-2 rounded-lg">
+                                                    <span className="text-gray-800">{new Date(date + 'T00:00:00').toLocaleDateString('ar-SA')}</span>
+                                                    <button onClick={() => removeSailingDate(date)} className="text-red-500 hover:text-red-700">
+                                                        <XIcon />
+                                                    </button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* الأذونات المؤقتة */}
+                            <div className="mt-6 bg-orange-50 rounded-xl p-4">
+                                <h2 className="text-lg font-bold text-gray-800 mb-2">الأذونات المؤقتة</h2>
+                                <p className="text-sm text-gray-600 mb-3">استثناء مؤقت بتاريخ محدد</p>
+                                <div className="grid md:grid-cols-3 gap-3 mb-3">
+                                    <select
+                                        value={tempExcludeName}
+                                        onChange={(e) => setTempExcludeName(e.target.value)}
+                                        className="px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500"
+                                    >
+                                        <option value="">اختر الموظف</option>
+                                        {staff.filter(s => !excludedStaff.includes(s)).map(name => (
+                                            <option key={name} value={name}>{name}</option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="date"
+                                        value={tempExcludeDate}
+                                        onChange={(e) => setTempExcludeDate(e.target.value)}
+                                        className="px-3 py-2 border-2 border-orange-200 rounded-lg focus:outline-none focus:border-orange-500"
+                                    />
+                                    <button
+                                        onClick={addTemporaryExclusion}
+                                        className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 flex items-center justify-center gap-2"
+                                    >
+                                        <PlusIcon /> إضافة
+                                    </button>
+                                </div>
+                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                    {temporaryExclusions.length === 0 ? (
+                                        <p className="text-gray-500 text-center py-2">لا توجد أذونات</p>
+                                    ) : (
+                                        temporaryExclusions.map((exc, i) => (
+                                            <div key={i} className="flex items-center justify-between bg-white p-2 rounded-lg">
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <span className="font-semibold">{exc.name}</span>
+                                                    <span>-</span>
+                                                    <span>{new Date(exc.date + 'T00:00:00').toLocaleDateString('ar-SA')}</span>
+                                                    <span className="text-xs text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">إذن</span>
+                                                </div>
+                                                <button onClick={() => removeTemporaryExclusion(exc.name, exc.date)} className="text-red-500">
+                                                    <XIcon />
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* الفترة الزمنية */}
+                            <div className="mt-6 bg-green-50 rounded-xl p-4">
+                                <h2 className="text-lg font-bold text-gray-800 mb-3">الفترة الزمنية</h2>
+                                <div className="grid md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-gray-700 mb-1 font-semibold text-sm">من:</label>
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 mb-1 font-semibold text-sm">إلى:</label>
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:outline-none focus:border-green-500"
+                                        />
+                                    </div>
+                                    <div className="flex items-end">
+                                        <button
+                                            onClick={generateSchedule}
+                                            className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-bold"
+                                        >
+                                            إنشاء الجدول
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* الجدول النهائي */}
+                        {schedule.length > 0 && (
+                            <div className="bg-white rounded-2xl shadow-xl p-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-bold text-gray-800">جدول المناوبات</h2>
+                                    <button
+                                        onClick={downloadHTML}
+                                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                                    >
+                                        <DownloadIcon /> تحميل
+                                    </button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full border-collapse">
+                                        <thead>
+                                            <tr className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white">
+                                                <th className="border-2 border-gray-300 px-4 py-3 font-bold">المناوب</th>
+                                                <th className="border-2 border-gray-300 px-4 py-3 font-bold">التاريخ</th>
+                                                <th className="border-2 border-gray-300 px-4 py-3 font-bold">اليوم</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {schedule.map((day, i) => (
+                                                <tr key={i} className={day.assignee === 'بحر' ? 'bg-cyan-100' : i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                                                    <td className={`border-2 border-gray-300 px-4 py-3 text-center font-bold ${day.assignee === 'بحر' ? 'text-cyan-700 text-lg' : 'text-gray-800'}`}>
+                                                        {day.assignee}
+                                                    </td>
+                                                    <td className="border-2 border-gray-300 px-4 py-3 text-center text-gray-700">{day.displayDate}</td>
+                                                    <td className="border-2 border-gray-300 px-4 py-3 text-center font-semibold text-gray-800">{day.dayName}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ShiftScheduler />);
+    </script>
+</body>
+</html>
